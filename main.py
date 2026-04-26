@@ -60,7 +60,7 @@ def find_name(my_cookies, length):
 def main():
 
     # The cookie in order to log in as alice
-    my_cookies = {"PHPSESSID": "Enter your cookie"}
+    my_cookies = {"PHPSESSID": "INSERT_YOUR_COOKIE_HERE"}
 
     length = find_length(my_cookies)
     print(length)
